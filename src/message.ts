@@ -17,6 +17,12 @@ export const sendMessage = async (browser: Browser, url: string, message: string
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     console.log('page loaded');
 
+    const pageUrl = page.url();
+    console.log('page url: ' + pageUrl)
+    if (pageUrl.includes('linkedin.com/404/')) {
+        return { 'success': false, 'error': 'pageNotFound' }
+    }
+
     // 判断是否已登录
     const isLoggedIn = await page.evaluate(() => {
         return !!document.querySelector('.global-nav__me');
@@ -39,9 +45,9 @@ export const sendMessage = async (browser: Browser, url: string, message: string
         }
     });
     if (url.includes('linkedin.com/in/')) {
-        messageForIndividual(page, message);
+        await messageForIndividual(page, message);
     } else if (url.includes('linkedin.com/company/')) {
-        messageForCompany(page, message);
+        await messageForCompany(page, message);
     }
 
     // 等待消息发送

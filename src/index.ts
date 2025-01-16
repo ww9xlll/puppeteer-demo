@@ -81,7 +81,13 @@ app.post('/message', async (c) => {
   if (!message) {
     return c.json({ 'success': false, 'error': 'messageRequired' })
   }
-  const result = await sendMessage(browser, url, message)
+  let result
+  try {
+    result = await sendMessage(browser, url, message)
+  } catch (error) {
+    console.error(error);
+    return c.json({ 'success': false, 'error': 'sendMessageFailed' })
+  }
   return c.json(result);
 })
 
