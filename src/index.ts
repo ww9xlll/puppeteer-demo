@@ -33,8 +33,8 @@ browser.on('targetcreated', (target) => {
 const cookiePath = './cookies.json'
 if (fs.existsSync(cookiePath)) {
   const cookieString = fs.readFileSync(cookiePath, 'utf-8')
-  const cookies = JSON.parse(cookieString);
-  console.log('Cookies loaded from file');
+  const cookies = JSON.parse(cookieString).filter((cookie: any) => cookie.expires / 1000 > Date.now() / 1000);
+  console.log('Cookies loaded from file, length: ', cookies.length);
 
   // 设置 Cookie 到当前页面
   await browser.setCookie(...cookies);
@@ -92,7 +92,7 @@ app.post('/message', async (c) => {
 })
 
 let port: number;
-if (process.env.PASSWORD) {
+if (process.env.PORT) {
   port = Number(process.env.PORT)
 } else {
   port = 3000
