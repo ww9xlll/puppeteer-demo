@@ -91,7 +91,13 @@ app.post('/message', async (c) => {
   return c.json(result);
 })
 
-const port = 3000
+let port: number;
+if (process.env.PASSWORD) {
+  port = Number(process.env.PORT)
+} else {
+  port = 3000
+}
+
 console.log(`Server is running on http://localhost:${port}`)
 
 serve({
