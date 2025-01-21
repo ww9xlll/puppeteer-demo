@@ -1,5 +1,7 @@
 import { Browser, type Page } from "puppeteer-core";
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export const sendMessage = async (browser: Browser, url: string, message: string): Promise<any> => {
     const page = await browser.newPage();
     // 获取浏览器窗口的大小
@@ -17,7 +19,7 @@ export const sendMessage = async (browser: Browser, url: string, message: string
     try {
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 5000 });
     } catch (error) {
-        console.error('Failed to navigate to LinkedIn page:', error);
+        // 这里报错是正常的
     }
 
     console.log('page loaded');
@@ -70,13 +72,36 @@ export const sendMessage = async (browser: Browser, url: string, message: string
 
 const messageForIndividual = async (page: Page, message: string) => {
     // 输入消息内容
-    await page.waitForSelector('.msg-form__contenteditable', { visible: true, timeout: 5000 });
+    const selector = '.msg-form__contenteditable';
+    await page.waitForSelector(selector, { visible: true, timeout: 5000 });
     console.log('msg-form__contenteditable loaded')
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    await page.click('.msg-form__contenteditable');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await page.click('.msg-form__contenteditable');
-    await page.type('.msg-form__contenteditable', message);
+
+    // 输入内容
+    await page.focus(selector);
+    console.log('msg-form__contenteditable focused')
+    await page.click(selector);
+    console.log('msg-form__contenteditable clicked')
+    await page.keyboard.press('A'); // 删除所有内容
+    delay(2000);
+    await page.keyboard.press('Backspace'); // 删除所有内容
+    console.log('msg-form__contenteditable cleared')
+    await page.keyboard.press('Backspace');
+    delay(2000);
+
+    try {
+        await page.type(selector, message, { delay: 100 });
+        console.log('msg-form__contenteditable typed')
+    } catch (error: any) {
+        console.log('msg-form__contenteditable typed failed')
+        for (const char of message) {
+            await page.keyboard.sendCharacter(char); // 逐个发送字符
+            delay(100);
+        }
+        //await page.keyboard.type(message, { delay: 100 }); // Types slower, like a user
+        console.log('msg-form__contenteditable typed by keyboard')
+    }
+
+    delay(2000);
 
     // 模拟按下 Cmd + Enter（macOS）或 Ctrl + Enter（Windows）
     if (process.platform === 'darwin') { // macOS
@@ -91,6 +116,8 @@ const messageForIndividual = async (page: Page, message: string) => {
         await page.keyboard.up('Control'); // 松开 Ctrl 键
     }
     console.log('Cmd/Ctrl + Enter pressed');
+
+    delay(2000);
 }
 
 const messageForCompany = async (page: Page, message: string) => {
