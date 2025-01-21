@@ -1,4 +1,4 @@
-import type { Browser } from "puppeteer";
+import type { Browser } from "puppeteer-core";
 import fs from 'fs'
 
 export const login = async (browser: Browser, username: string, password: string) => {

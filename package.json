@@ -7,10 +7,12 @@
     "build:bundle": "esbuild dist/index.js --bundle --outfile=dist/bundle.js --platform=node --minify"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
     "@hono/node-server": "^1.13.7",
-    "dotenv": "^16.4.7",
     "hono": "^4.6.16",
-    "puppeteer": "^24.0.0"
+    "puppeteer-core": "^24.0.0",
+    "xlsx": "^0.18.5",
+    "yaml": "^2.7.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",

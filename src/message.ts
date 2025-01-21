@@ -1,4 +1,4 @@
-import { Browser, type Page } from "puppeteer";
+import { Browser, type Page } from "puppeteer-core";
 
 export const sendMessage = async (browser: Browser, url: string, message: string): Promise<any> => {
     const page = await browser.newPage();
@@ -14,13 +14,21 @@ export const sendMessage = async (browser: Browser, url: string, message: string
         height: dimensions.height,
     });
     // 导航到 LinkedIn 个人主页
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    try {
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 5000 });
+    } catch (error) {
+        console.error('Failed to navigate to LinkedIn page:', error);
+    }
+
     console.log('page loaded');
 
     const pageUrl = page.url();
     console.log('page url: ' + pageUrl)
     if (pageUrl.includes('linkedin.com/404/')) {
         return { 'success': false, 'error': 'pageNotFound' }
+    }
+    if (pageUrl.includes('authwall')) {
+        return { 'success': false, 'error': 'authwall' }
     }
 
     // 判断是否已登录
@@ -63,6 +71,10 @@ export const sendMessage = async (browser: Browser, url: string, message: string
 const messageForIndividual = async (page: Page, message: string) => {
     // 输入消息内容
     await page.waitForSelector('.msg-form__contenteditable', { visible: true, timeout: 5000 });
+    console.log('msg-form__contenteditable loaded')
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    await page.click('.msg-form__contenteditable');
+    await new Promise(resolve => setTimeout(resolve, 1000));
     await page.click('.msg-form__contenteditable');
     await page.type('.msg-form__contenteditable', message);
 
@@ -88,7 +100,7 @@ const messageForCompany = async (page: Page, message: string) => {
 
     await page.evaluate(() => {
         const buttons = Array.from(document.querySelectorAll('button'));
-        const button = buttons.find(button => button.outerText === 'Send message');
+        const button = buttons.find(button => button.outerText === 'Send message' || button.outerText === '发消息');
         if (button) {
             button.click(); // 在浏览器上下文中执行点击
         }

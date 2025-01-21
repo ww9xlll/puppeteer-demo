@@ -28,5 +28,8 @@ lerna-debug.log*
 .DS_Store
 
 cookies.json
-
+*.xlsx
 dist
+bundle
+*.zip
+config.yaml

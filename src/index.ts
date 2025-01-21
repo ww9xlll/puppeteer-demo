@@ -1,32 +1,30 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-import puppeteer, { Browser } from 'puppeteer'
+import puppeteer, { Browser } from 'puppeteer-core'
 import fs from 'fs'
-import path from 'path';
-import dotenv from 'dotenv'
-import { fileURLToPath } from 'url';
 import { sendMessage } from './message.js'
 import { login } from './login.js';
-
-// 获取当前文件的目录路径
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
-// 读取环境变量
-// const username = process.env.USERNAME;
-// const password = process.env.PASSWORD;
+import { readExcel, writeExcel } from './excel.js'
+import { generateText } from './gemini.js';
+import { logger } from 'hono/logger';
+import { systemConfig } from './config.js'
 
 const app = new Hono()
+app.use("*", logger())
 
 const browser: Browser = await puppeteer.launch({
+  executablePath: systemConfig.chromePath, // 指定系统中的 Chrome 路径
   headless: false,
   defaultViewport: null, // 禁用默认视口大小
   args: ['--window-size=1280,800']
 });
 
+// const browser: Browser = await puppeteer.connect({
+//   browserWSEndpoint: 'ws://localhost:3000'
+// });
+
 browser.on('targetcreated', (target) => {
-  console.log(`New target created: ${target.url()}`);
+  //console.log(`New target created: ${target.url()}`);
 });
 
 // 读取保存的 Cookie
@@ -91,9 +89,57 @@ app.post('/message', async (c) => {
   return c.json(result);
 })
 
+// 定义替换函数
+function renderPrompt(template: string, data: Record<string, string>): string {
+  return template.replace(/{(\w+)}/g, (_, key) => data[key] || '');
+}
+
+app.post('/process', async (c) => {
+  const json = await c.req.json();
+  const path = json.path;
+  if (!browser) {
+    return c.json({ 'success': false, 'error': 'browserNotStarted' })
+  }
+  if (!path) {
+    return c.json({ 'success': false, 'error': 'urlRequired' })
+  }
+  const excelArray = await readExcel(path)
+  const excelOutputs: any[] = []
+  for (const item of excelArray) {
+    console.log('------------------');
+    try {
+      await new Promise(resolve => setTimeout(resolve, Number(systemConfig.sendInterval)));
+      console.log("record:", item);
+      const prompt = renderPrompt(systemConfig.template.prompt!, item);
+      console.log("prompt:", prompt);
+      const llmResult = await generateText(prompt)
+      console.log("llm output:", llmResult);
+      const excelOutput = { ...item, ...llmResult }
+      if (llmResult.is_valid && llmResult.is_online_store && item.linkedin) {
+        const combinedObj = Object.assign({}, item, llmResult);
+        const sendResult = await sendMessage(browser, item.linkedin, combinedObj)
+        console.log('发送结果: ', sendResult);
+        excelOutput.sendResult = sendResult.success ? 'success' : 'failed';
+      } else {
+        console.log('跳过发送: ', item);
+        excelOutput.sendResult = 'skipped';
+      }
+      excelOutputs.push(excelOutput)
+    } catch (error) {
+      console.error(error);
+      const excelOutput = { ...item }
+      excelOutput.excelOutput = 'error'
+      excelOutputs.push(excelOutput)
+    }
+  }
+  const outputPath = `./result-${Date.now().toString()}.xlsx`;
+  writeExcel(outputPath, excelOutputs)
+  return c.json({ 'success': true, 'output': outputPath })
+})
+
 let port: number;
-if (process.env.PORT) {
-  port = Number(process.env.PORT)
+if (systemConfig.port) {
+  port = Number(systemConfig.port)
 } else {
   port = 3000
 }
